@@ -1,0 +1,8 @@
+{
+  "name": "lighthouse-package",
+  "version": "1.0.0",
+  "description": "패키지 방식 lighthouse",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node src/test.js",
+    "
