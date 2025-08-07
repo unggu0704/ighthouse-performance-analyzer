@@ -1,9 +1,27 @@
-// src/index.js - KT 사이트 자동 성능 측정 도구
+// src/index.js - KT 사이트 자동 성능 측정 도구 (디버깅 버전)
+
+// 🔍 디버깅 로그 추가
+console.log('🔍 [DEBUG] 스크립트 시작!');
+console.log('🔍 [DEBUG] Node.js 버전:', process.version);
+console.log('🔍 [DEBUG] 현재 디렉토리:', process.cwd());
+
+console.log('🔍 [DEBUG] 모듈 로드 시작...');
 const lighthouse = require('lighthouse');
+console.log('🔍 [DEBUG] lighthouse 모듈 로드 완료');
+
 const chromeLauncher = require('chrome-launcher');
+console.log('🔍 [DEBUG] chrome-launcher 모듈 로드 완료');
+
 const fs = require('fs-extra');
+console.log('🔍 [DEBUG] fs-extra 모듈 로드 완료');
+
 const XLSX = require('xlsx');
+console.log('🔍 [DEBUG] xlsx 모듈 로드 완료');
+
 const path = require('path');
+console.log('🔍 [DEBUG] path 모듈 로드 완료');
+
+console.log('🔍 [DEBUG] 모든 모듈 로드 성공!');
 
 // 측정 대상 URL들
 const TARGET_URLS = [
@@ -25,40 +43,54 @@ const TARGET_URLS = [
 const PERFORMANCE_METRICS = ['FCP', 'LCP', 'TBT', 'CLS', 'SI'];
 const MEASUREMENTS_PER_CACHE_TYPE = 5; // 캐시 유/무 각각 5번씩
 
+console.log('🔍 [DEBUG] 상수 정의 완료');
+
 class PerformanceAnalyzer {
   constructor() {
+    console.log('🔍 [DEBUG] PerformanceAnalyzer 생성자 시작');
     this.results = [];
     this.chrome = null;
     this.startTime = new Date();
+    console.log('🔍 [DEBUG] PerformanceAnalyzer 생성자 완료');
   }
 
   // Chrome 브라우저 시작
   async startChrome() {
+    console.log('🔍 [DEBUG] startChrome() 함수 시작');
     console.log('🚀 Chrome 브라우저 시작 중...');
-    this.chrome = await chromeLauncher.launch({
-      chromeFlags: [
-        '--headless',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-extensions',
-        '--disable-gpu',
-        '--no-first-run',
-        '--disable-default-apps',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-features=TranslateUI',
-        '--disable-ipc-flooding-protection',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor'
-      ],
-      handleSIGINT: false
-    });
-    console.log(`✅ Chrome 시작 완료 (포트: ${this.chrome.port})`);
+    
+    try {
+      console.log('🔍 [DEBUG] chromeLauncher.launch() 호출 중...');
+      this.chrome = await chromeLauncher.launch({
+        chromeFlags: [
+          '--headless',
+          '--no-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-extensions',
+          '--disable-gpu',
+          '--no-first-run',
+          '--disable-default-apps',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-features=TranslateUI',
+          '--disable-ipc-flooding-protection',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor'
+        ],
+        handleSIGINT: false
+      });
+      console.log('🔍 [DEBUG] chromeLauncher.launch() 완료');
+      console.log(`✅ Chrome 시작 완료 (포트: ${this.chrome.port})`);
+    } catch (error) {
+      console.error('🔍 [DEBUG] Chrome 시작 실패:', error.message);
+      throw error;
+    }
   }
 
   // Chrome 브라우저 종료
   async stopChrome() {
+    console.log('🔍 [DEBUG] stopChrome() 함수 시작');
     if (this.chrome) {
       try {
         await this.chrome.kill();
@@ -70,6 +102,7 @@ class PerformanceAnalyzer {
       }
       this.chrome = null;
     }
+    console.log('🔍 [DEBUG] stopChrome() 함수 완료');
   }
 
   // 단일 성능 측정 실행
@@ -201,11 +234,13 @@ class PerformanceAnalyzer {
 
   // 전체 측정 실행
   async runFullAnalysis() {
+    console.log('🔍 [DEBUG] runFullAnalysis() 함수 시작');
     console.log('🎯 KT 사이트 성능 측정 시작');
     console.log(`📋 측정 대상: ${TARGET_URLS.length}개 사이트`);
     console.log(`📊 총 측정 횟수: ${TARGET_URLS.length * 2 * MEASUREMENTS_PER_CACHE_TYPE}회 (캐시 유/무 각 ${MEASUREMENTS_PER_CACHE_TYPE}회)`);
     console.log('⏱️  예상 소요 시간: 약 25-30분 (안정성 개선으로 시간 증가)\n');
 
+    console.log('🔍 [DEBUG] Chrome 시작 호출 중...');
     await this.startChrome();
 
     try {
@@ -425,51 +460,5 @@ class PerformanceAnalyzer {
 
 // 메인 실행 함수
 async function main() {
-  console.log('🔍 시작 전 환경 확인...');
-  
-  const analyzer = new PerformanceAnalyzer();
-  
-  // 프로세스 종료 시그널 처리
-  process.on('SIGINT', async () => {
-    console.log('\n⚠️  사용자에 의해 중단됨. Chrome 정리 중...');
-    await analyzer.stopChrome();
-    process.exit(0);
-  });
-
-  process.on('SIGTERM', async () => {
-    console.log('\n⚠️  프로세스 종료 신호 받음. Chrome 정리 중...');
-    await analyzer.stopChrome();
-    process.exit(0);
-  });
-  
-  try {
-    // 실제 측정 시작
-    await analyzer.runFullAnalysis();
-    console.log('\n🎉 모든 작업이 성공적으로 완료되었습니다!');
-    process.exit(0);
-    
-  } catch (error) {
-    console.error('\n❌ 측정 중 치명적인 오류 발생:');
-    console.error('오류 내용:', error.message);
-    
-    if (error.stack && process.env.NODE_ENV === 'development') {
-      console.error('스택 트레이스:', error.stack);
-    }
-    
-    console.log('\n💡 해결 방법:');
-    console.log('1. 네트워크 연결 상태를 확인하세요');
-    console.log('2. 다른 Chrome 브라우저를 모두 종료하고 재실행하세요');
-    console.log('3. VPN을 사용 중이면 해제 후 재실행하세요');
-    console.log('4. 방화벽이나 보안 프로그램이 Chrome을 차단하지 않는지 확인하세요');
-    
-    await analyzer.stopChrome();
-    process.exit(1);
-  }
-}
-
-// CLI에서 직접 실행된 경우
-if (require.main === module) {
-  main();
-}
-
-module.exports = PerformanceAnalyzer;
+  console.log('🔍 [DEBUG] main() 함수 시작');
+  console.log('🔍 시작 전 환경 확
