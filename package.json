@@ -4,4 +4,26 @@
   "description": "KT Shop 자동 성능 측정 도구",
   "main": "src/index.js",
   "scripts": {
-    "test": "nod
+    "test": "node --version",
+    "measure": "node src/index.js",
+    "start": "node src/index.js"
+  },
+  "keywords": [
+    "lighthouse",
+    "performance",
+    "web",
+    "automation",
+    "testing"
+  ],
+  "author": "KT Performance Team",
+  "license": "MIT",
+  "dependencies": {
+    "chrome-launcher": "^0.15.2",
+    "fs-extra": "^11.1.1",
+    "lighthouse": "^9.6.8",
+    "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

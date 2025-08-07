@@ -1,4 +1,4 @@
-// src/index.js - KT 사이트 자동 성능 측정 도구 (디버깅 버전)
+// src/index.js - KT 사이트 자동 성능 측정 도구 (수정된 버전)
 
 // 🔍 디버깅 로그 추가
 console.log('🔍 [DEBUG] 스크립트 시작!');
@@ -110,12 +110,12 @@ class PerformanceAnalyzer {
     const cacheStatus = withCache ? '캐시 있음' : '캐시 없음';
     console.log(`📊 측정 중: ${url} (${cacheStatus}) - ${attempt}번째${retryCount > 0 ? ` (재시도 ${retryCount})` : ''}`);
 
+    // Lighthouse 9.x 버전에 맞는 설정
     const options = {
       logLevel: 'error',
       output: 'json',
       onlyCategories: ['performance'],
       port: this.chrome.port,
-      disableDeviceEmulation: true,
       disableStorageReset: withCache,
       maxWaitForFcp: 60 * 1000, // 60초로 증가
       maxWaitForLoad: 90 * 1000, // 90초로 증가
@@ -124,8 +124,15 @@ class PerformanceAnalyzer {
         'final-screenshot',
         'full-page-screenshot'
       ],
-      // 프로토콜 타임아웃 증가
-      emulatedFormFactor: 'none',
+      // Lighthouse 9.x에 맞는 설정
+      formFactor: 'desktop', // disableDeviceEmulation 대신 사용
+      screenEmulation: {
+        mobile: false,
+        width: 1350,
+        height: 940,
+        deviceScaleFactor: 1,
+        disabled: false,
+      },
       throttling: {
         rttMs: 0,
         throughputKbps: 0,
@@ -461,4 +468,26 @@ class PerformanceAnalyzer {
 // 메인 실행 함수
 async function main() {
   console.log('🔍 [DEBUG] main() 함수 시작');
-  console.log('🔍 시작 전 환경 확
+  console.log('🔍 시작 전 환경 확인...');
+  
+  try {
+    console.log('🔍 [DEBUG] PerformanceAnalyzer 생성자 시작');
+    const analyzer = new PerformanceAnalyzer();
+    console.log('🔍 [DEBUG] analyzer.runFullAnalysis() 호출 중...');
+    await analyzer.runFullAnalysis();
+  } catch (error) {
+    console.error('💥 실행 중 오류 발생:', error.message);
+    console.error('📋 오류 상세:', error.stack);
+    process.exit(1);
+  }
+}
+
+// CLI에서 직접 실행되었을 때만 main 함수 실행
+if (require.main === module) {
+  console.log('🔍 [DEBUG] CLI에서 직접 실행됨, main() 호출');
+  main();
+} else {
+  console.log('🔍 [DEBUG] 모듈로 import됨, main() 호출하지 않음');
+}
+
+console.log('🔍 [DEBUG] main() 함수 정의 완료, 실행 여부 확인 중...');
