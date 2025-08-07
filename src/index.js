@@ -62,26 +62,15 @@ class PerformanceAnalyzer {
     try {
       console.log('🔍 [DEBUG] chromeLauncher.launch() 호출 중...');
       this.chrome = await chromeLauncher.launch({
-        chromeFlags: [
-          '--headless',
-          '--no-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-extensions',
-          '--disable-gpu',
-          '--no-first-run',
-          '--disable-default-apps',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding',
-          '--disable-features=TranslateUI',
-          '--disable-ipc-flooding-protection',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor'
-        ],
-        handleSIGINT: false
+      chromeFlags: ['--headless', '--no-sandbox']
+
       });
       console.log('🔍 [DEBUG] chromeLauncher.launch() 완료');
       console.log(`✅ Chrome 시작 완료 (포트: ${this.chrome.port})`);
+      
+      // Chrome이 완전히 준비될 때까지 잠시 대기
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
     } catch (error) {
       console.error('🔍 [DEBUG] Chrome 시작 실패:', error.message);
       throw error;
@@ -110,40 +99,24 @@ class PerformanceAnalyzer {
     const cacheStatus = withCache ? '캐시 있음' : '캐시 없음';
     console.log(`📊 측정 중: ${url} (${cacheStatus}) - ${attempt}번째${retryCount > 0 ? ` (재시도 ${retryCount})` : ''}`);
 
-    // Lighthouse 9.x 버전에 맞는 설정
+    // Lighthouse 9.x 버전에 맞는 설정 - 타임아웃 단축 및 최적화
     const options = {
-      logLevel: 'error',
-      output: 'json',
-      onlyCategories: ['performance'],
-      port: this.chrome.port,
-      disableStorageReset: withCache,
-      maxWaitForFcp: 60 * 1000, // 60초로 증가
-      maxWaitForLoad: 90 * 1000, // 90초로 증가
-      skipAudits: [
-        'screenshot-thumbnails',
-        'final-screenshot',
-        'full-page-screenshot'
-      ],
-      // Lighthouse 9.x에 맞는 설정
-      formFactor: 'desktop', // disableDeviceEmulation 대신 사용
-      screenEmulation: {
-        mobile: false,
-        width: 1350,
-        height: 940,
-        deviceScaleFactor: 1,
-        disabled: false,
-      },
-      throttling: {
-        rttMs: 0,
-        throughputKbps: 0,
-        cpuSlowdownMultiplier: 1,
-        requestLatencyMs: 0,
-        downloadThroughputKbps: 0,
-        uploadThroughputKbps: 0
-      }
+        logLevel: 'info',
+        output: 'json',
+        onlyCategories: ['performance'],
+        port: this.chrome.port,
+        disableStorageReset: false,
+        onlyAudits: [
+            'first-contentful-paint',
+            'largest-contentful-paint', 
+            'total-blocking-time',
+            'cumulative-layout-shift',
+            'speed-index'
+        ]
     };
 
     try {
+      console.log(`   🔍 측정 시작... (최대 30초 대기)`);
       const runnerResult = await lighthouse(url, options);
       
       if (!runnerResult || !runnerResult.lhr) {
@@ -163,24 +136,33 @@ class PerformanceAnalyzer {
       };
 
       console.log(`   ✅ 완료: FCP=${metrics.FCP}ms, LCP=${metrics.LCP}ms, TBT=${metrics.TBT}ms, CLS=${metrics.CLS}, SI=${metrics.SI}ms`);
+      
+      // 비정상적으로 긴 로딩 시간 체크 (30초 이상)
+      if (metrics.FCP > 30000 || metrics.LCP > 30000) {
+        console.log(`   ⚠️  경고: 로딩 시간이 비정상적으로 깁니다. 네트워크 상태를 확인하세요.`);
+      }
+      
       return metrics;
 
     } catch (error) {
       console.error(`   ❌ 측정 실패: ${error.message}`);
       
-      // 프로토콜 에러나 타임아웃 에러의 경우 Chrome 재시작
-      if (error.message.includes('PROTOCOL') || error.message.includes('timeout') || error.message.includes('500')) {
-        if (retryCount < 2) { // 최대 2번 재시도
-          console.log('   🔄 Chrome 재시작 후 재시도...');
-          
-          // Chrome 재시작
-          await this.stopChrome();
-          await new Promise(resolve => setTimeout(resolve, 3000)); // 3초 대기
-          await this.startChrome();
-          
-          // 재시도
-          return await this.measureSingle(url, withCache, attempt, retryCount + 1);
-        }
+      // 특정 에러들에 대한 Chrome 재시작
+      const needsChromeRestart = error.message.includes('PROTOCOL') || 
+                                 error.message.includes('timeout') || 
+                                 error.message.includes('500') ||
+                                 error.message.includes('Cannot create new tab');
+      
+      if (needsChromeRestart && retryCount < 2) { // 최대 2번 재시도
+        console.log('   🔄 Chrome 재시작 후 재시도...');
+        
+        // Chrome 재시작
+        await this.stopChrome();
+        await new Promise(resolve => setTimeout(resolve, 3000)); // 3초 대기
+        await this.startChrome();
+        
+        // 재시도
+        return await this.measureSingle(url, withCache, attempt, retryCount + 1);
       }
       
       // 실패 시 기본값 반환
@@ -202,10 +184,10 @@ class PerformanceAnalyzer {
       const result = await this.measureSingle(url, withCache, i);
       measurements.push(result);
       
-      // 측정 간 5초 대기 (서버 부하 방지 및 Chrome 안정화)
+      // 측정 간 3초 대기로 단축 (이전 5초에서)
       if (i < MEASUREMENTS_PER_CACHE_TYPE) {
-        console.log('   ⏳ 5초 대기 중...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log('   ⏳ 3초 대기 중...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
 
@@ -245,7 +227,7 @@ class PerformanceAnalyzer {
     console.log('🎯 KT 사이트 성능 측정 시작');
     console.log(`📋 측정 대상: ${TARGET_URLS.length}개 사이트`);
     console.log(`📊 총 측정 횟수: ${TARGET_URLS.length * 2 * MEASUREMENTS_PER_CACHE_TYPE}회 (캐시 유/무 각 ${MEASUREMENTS_PER_CACHE_TYPE}회)`);
-    console.log('⏱️  예상 소요 시간: 약 25-30분 (안정성 개선으로 시간 증가)\n');
+    console.log('⏱️  예상 소요 시간: 약 10-15분 (최적화됨)\n');
 
     console.log('🔍 [DEBUG] Chrome 시작 호출 중...');
     await this.startChrome();
@@ -259,9 +241,9 @@ class PerformanceAnalyzer {
         const noCacheResult = await this.measureMultiple(site.url, site.name, false);
         this.results.push(noCacheResult);
 
-        // 사이트 간 10초 대기 (Chrome 안정화)
-        console.log('   ⏳ Chrome 안정화를 위해 10초 대기...');
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        // 사이트 간 5초 대기 (단축됨)
+        console.log('   ⏳ Chrome 안정화를 위해 5초 대기...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
 
         // 캐시 있음으로 5번 측정
         const withCacheResult = await this.measureMultiple(site.url, site.name, true);
@@ -271,8 +253,8 @@ class PerformanceAnalyzer {
 
         // 다음 사이트로 넘어가기 전 Chrome 안정화 (마지막 사이트 제외)
         if (index < TARGET_URLS.length - 1) {
-          console.log('   ⏳ 다음 사이트 측정을 위해 15초 대기...');
-          await new Promise(resolve => setTimeout(resolve, 15000));
+          console.log('   ⏳ 다음 사이트 측정을 위해 7초 대기...');
+          await new Promise(resolve => setTimeout(resolve, 7000));
         }
       }
 
