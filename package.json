@@ -1,18 +1,29 @@
 {
-  "name": "lighthouse-package",
+  "name": "lighthouse-performance-analyzer",
   "version": "1.0.0",
-  "description": "패키지 방식 lighthouse",
+  "description": "KT Shop 자동 성능 측정 도구",
   "main": "src/index.js",
   "scripts": {
     "test": "node src/test.js",
+    "start": "node src/index.js",
+    "measure": "node src/index.js",
     "install-deps": "npm install"
   },
   "dependencies": {
     "lighthouse": "^9.6.8",
     "chrome-launcher": "^0.15.2",
-    "fs-extra": "^11.1.1"
+    "fs-extra": "^11.1.1",
+    "xlsx": "^0.18.5"
   },
   "engines": {
     "node": ">=16.0.0"
-  }
+  },
+  "keywords": [
+    "lighthouse",
+    "performance",
+    "web-performance",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT"
 }
