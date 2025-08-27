@@ -68,6 +68,7 @@ class PerformanceAnalyzer {
 
         try {
             // 캐시 없음 측정
+            console.log(`🎯 ${site.name} - 캐시 없음 측정 시작`);
             siteResult.noCache = await this.lighthouseRunner.measureMultiple(
                 site.url, 
                 false, 
@@ -79,7 +80,8 @@ class PerformanceAnalyzer {
             // 측정 간 대기
             await Utils.sleep(config.WAIT_TIME_BETWEEN_MEASUREMENTS);
 
-            // 캐시 있음 측정  
+            // 캐시 있음 측정
+            console.log(`🎯 ${site.name} - 캐시 있음 측정 시작`);  
             siteResult.withCache = await this.lighthouseRunner.measureMultiple(
                 site.url, 
                 true, 
@@ -136,26 +138,22 @@ class PerformanceAnalyzer {
 
 // 메인 실행 함수
 async function main() {
-    console.log('🔍 [DEBUG] main() 함수 정의 완료, 실행 여부 확인 중...');
+    console.log('🔍 [DEBUG] main() 함수 실행 시작');
     
-    if (require.main === module) {
-        console.log('🔍 [DEBUG] main() 함수 실행 시작');
+    const analyzer = new PerformanceAnalyzer();
+    
+    try {
+        await analyzer.init();
+        await analyzer.runFullAnalysis();
         
-        const analyzer = new PerformanceAnalyzer();
+    } catch (error) {
+        console.error('❌ 프로그램 실행 실패:', Utils.simplifyErrorMessage(error));
+        console.error('상세 에러:', error);
+        process.exit(1);
         
-        try {
-            await analyzer.init();
-            await analyzer.runFullAnalysis();
-            
-        } catch (error) {
-            console.error('❌ 프로그램 실행 실패:', Utils.simplifyErrorMessage(error));
-            console.error('상세 에러:', error);
-            process.exit(1);
-            
-        } finally {
-            console.log('🏁 프로그램 종료');
-            process.exit(0);
-        }
+    } finally {
+        console.log('🏁 프로그램 종료');
+        process.exit(0);
     }
 }
 
@@ -174,11 +172,13 @@ process.on('SIGINT', async () => {
 });
 
 process.on('uncaughtException', (error) => {
-    console.error('❌ 처리되지 않은 예외:', Utils.simplifyErrorMessage(error));
+    console.error('❌ 처리되지 않은 예외:', error.message);
     process.exit(1);
 });
 
-// 실행
-main();
+// 메인 모듈인지 확인 후 실행
+if (require.main === module) {
+    main();
+}
 
 module.exports = PerformanceAnalyzer;
